@@ -1,0 +1,163 @@
+#' Variables used within Makefile generating process
+#'
+#' `defaultVars` is a reserved variable, a named vector that defines
+#' Makefile variables, i.e. shell variables that will exist during
+#' the execution of Makefile rules. The content of this variable
+#' is written into the resulting Makefile withen the execution of
+#' the [makefile()] function.
+#' @seealso [makefile()]
+#' @author Michal Burda
+#' @export
+defaultVars <- c(SHELL='/bin/sh',
+                 R='"$(R_HOME)/bin$(R_ARCH)/Rscript"',
+                 RM=ifelse(.Platform$OS.type == 'unix', 'rm', 'del'))
+
+
+.taskDependencies <- function(job, task) {
+  r <- lapply(job, function(rule) {
+    ifelse(task %in% rule$task, list(rule$target), list())
+  })
+  unlist(r)
+}
+
+
+#' Generate Makefile from given list of rules (`job`).
+#'
+#' In the (GNU) `make` jargon, *rule* is a sequence of commands to build a result. In this package, rule
+#' should be understood similarly: It is a command or a sequence of command that optionally produces some
+#' files and depends on some other files (such as data files, scripts) or other rules. Moreover, a rule
+#' contain a command for cleanup, i.e. for removal of generated files.
+#'
+#' The [makefile()] function takes a list of rules (see [rule()]) and generates a `Makefile` from them.
+#' Additionally, `all` and `clean` rules are optionally generated too, which can be executed from shell
+#' by issuing `make all` or `make clean` command, respectively, in order to build everything or erase all
+#' generated files.
+#'
+#' If there is a need to group some rules into a group, it can be done either via dependencies or by using
+#' the `task` mechanism. Each rule may get assigned one or more tasks (see `task` in [rule()]). Each
+#' task is then created as a standalone rule depending on assigned rules. That way, executing `make task_name`
+#' will build all rules with assigned task `task_name`. By default, all rules are assigned to task `all`,
+#' which allows `make all` to build everything.
+#'
+#' @param job A list of rules (i.e. of instances of the S3 class `rmake.rule` - see [rule()])
+#' @param fileName A file to write to. If `NULL`, the result is returned as a character vector instead of
+#' writing to a file.
+#' @param makeScript A name of the file that calls this function (in order to generate
+#' the `makefile` rule)
+#' @param vars A named character vector of shell variables that will be declared in the resulting Makefile
+#' (additionally to `[defaultVars]`)
+#' @param all `TRUE` if the `all` rule should be automatically created and added: created `all` rule
+#' has dependencies to all the other rules, which causes that everything is built if `make all` is executed
+#' in shell's command line.
+#' @param tasks `TRUE` if "task" rules should be automatically created and added -- see [rule()] for
+#' more details.
+#' @param clean `TRUE` if the `clean` rule should be automatically created and added
+#' @param makefile `TRUE` if the `Makefile` rule should be automatically created and added: this rule
+#' causes that any change in the R script - that generates the `Makefile` (i.e. that calls [makefile()]) -
+#' issues the re-generation of the Makefile in the beginning of any build.
+#' @return If `fileName` is `NULL`, the function returns a character vector with the contents of the
+#' Makefile. Instead, the content is written to the given `fileName`.
+#' @seealso [rule()], [rmakeSkeleton()]
+#' @author Michal Burda
+#' @examples
+#' # create some jobs
+#' job <- list(
+#'     rRule('dataset.rds', 'preprocess.R', 'dataset.csv'),
+#'     markdownRule('report.pdf', 'report.Rmd', 'dataset.rds'),
+#'     markdownRule('details.pdf', 'details.Rmd', 'dataset.rds'))
+#'
+#' # generate Makefile (output as a character vector)
+#' makefile(job)
+#'
+#' # generate to file
+#' tmp <- tempdir()
+#' makefile(job, file.path(tmp, "Makefile"))
+#' @export
+#' @import assertthat
+makefile <- function(job=list(),
+                     fileName=NULL,
+                     makeScript='Makefile.R',
+                     vars=NULL,
+                     all=TRUE,
+                     tasks=TRUE,
+                     clean=TRUE,
+                     makefile=TRUE) {
+  assert_that(is.list(job))
+  assert_that(all(vapply(job, is.rule, logical(1))))
+  assert_that(is.null(fileName) || is.string(fileName))
+  assert_that(is.string(makeScript))
+  if (!is.null(vars)) {
+    assert_that(is.character(vars))
+    assert_that(!is.null(names(vars)))
+    assert_that(is.character(names(vars)))
+    assert_that(all(names(vars) != ""))
+  }
+  assert_that(is.flag(all))
+  assert_that(is.flag(tasks))
+  assert_that(is.flag(clean))
+  assert_that(is.flag(makefile))
+
+  if (tasks) {
+    uniqueTaskNames <- unique(unlist(lapply(job, function(rule) rule$task)))
+    for (task in rev(uniqueTaskNames)) {
+      if (task != 'all') {
+        taskRule <- rule(target=task,
+                             depends=.taskDependencies(job, task),
+                             phony=TRUE)
+        job <- c(list(taskRule), job)
+      }
+    }
+  }
+
+  if (all) {
+    allRule <- rule(target='all',
+                        depends=.taskDependencies(job, 'all'),
+                        phony=TRUE)
+    job <- c(list(allRule), job)
+  }
+
+  if (clean) {
+    cleans <- unique(unlist(lapply(job, function(rule) rule$clean)))
+    if (!is.null(cleans) && length(cleans) > 0) {
+      cleanRule <- rule(target='clean',
+                            depends=NULL,
+                            build=cleans,
+                            phony=TRUE)
+      job <- c(job, list(cleanRule))
+    }
+  }
+
+  if (makefile) {
+    target <- fileName
+    if (is.null(target)) {
+      target <- 'Makefile'
+    }
+    makefileRule <- rRule(target=target, script=makeScript)
+    job <- c(job, list(makefileRule))
+  }
+
+  v <- defaultVars
+  v[names(vars)] <- vars
+  preambleRows <- c('# Generated by rmake: do not edit by hand',
+                    paste0(names(v), '=', v))
+
+  ruleRows <- lapply(job, function(rule) {
+    res <- c(paste0(paste0(rule$pattern, collapse=' '),
+                    ': ',
+                    paste0(rule$depends, collapse=' ')),
+             paste0('\t', rule$build))
+    if (isTRUE(rule$phony)) {
+      res <- c(paste0('.PHONY: ', rule$pattern),
+               res)
+    }
+    return(res)
+  })
+  ruleRows <- unlist(ruleRows)
+
+  rows <- c(preambleRows, '', ruleRows)
+  if (!is.null(fileName)) {
+    cat(rows, sep='\n', file=fileName)
+  } else {
+    return(rows)
+  }
+}
