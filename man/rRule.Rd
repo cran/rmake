@@ -4,7 +4,7 @@
 \alias{rRule}
 \title{Rule for running R scripts}
 \usage{
-rRule(target, script, depends = NULL, params = NULL, task = "all")
+rRule(target, script, depends = NULL, params = list(), task = "all")
 }
 \arguments{
 \item{target}{Name of output files to be created}
@@ -13,7 +13,7 @@ rRule(target, script, depends = NULL, params = NULL, task = "all")
 
 \item{depends}{A vector of file names that the R script depends on, or \code{NULL}.}
 
-\item{params}{\code{NULL} or a list of R values that become available within the \code{script} in
+\item{params}{A list of R values that become available within the \code{script} in
 a \code{params} variable.}
 
 \item{task}{A character vector of parent task names. The mechanism of tasks allows to
@@ -30,6 +30,10 @@ This rule is for execution of R scripts in order to create various file outputs.
 \details{
 In detail, this rule executes the following command in a separate R process:
 \code{params <- params; source(script)}
+
+That is, parameters given in the \code{params} argument are stored into the global variable
+and then the \code{script} is sourced. That is, the re-generation of the \code{Makefile} with any change
+to \code{params} will not cause the re-execution of the recipe unless any other script dependencies change.
 
 Issuing \code{make clean} from the shell causes removal of all files specified in \code{target} parameter.
 }

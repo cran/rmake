@@ -3,7 +3,7 @@
 #' `defaultVars` is a reserved variable, a named vector that defines
 #' Makefile variables, i.e. shell variables that will exist during
 #' the execution of Makefile rules. The content of this variable
-#' is written into the resulting Makefile withen the execution of
+#' is written into the resulting Makefile within the execution of
 #' the [makefile()] function.
 #' @seealso [makefile()]
 #' @author Michal Burda
@@ -18,6 +18,13 @@ defaultVars <- c(SHELL='/bin/sh',
     ifelse(task %in% rule$task, list(rule$target), list())
   })
   unlist(r)
+}
+
+
+.allTasks <- function(job) {
+  tasks <- lapply(job, function(rule) rule$task)
+  tasks <- unlist(tasks)
+  unique(c('all', tasks))
 }
 
 
@@ -97,13 +104,21 @@ makefile <- function(job=list(),
   assert_that(is.flag(clean))
   assert_that(is.flag(makefile))
 
+  makefileName <- NULL
+  if (makefile) {
+    makefileName <- fileName
+    if (is.null(makefileName)) {
+      makefileName <- 'Makefile'
+    }
+  }
+
   if (tasks) {
     uniqueTaskNames <- unique(unlist(lapply(job, function(rule) rule$task)))
     for (task in rev(uniqueTaskNames)) {
       if (task != 'all') {
         taskRule <- rule(target=task,
-                             depends=.taskDependencies(job, task),
-                             phony=TRUE)
+                         depends=c(makefileName, .taskDependencies(job, task)),
+                         phony=TRUE)
         job <- c(list(taskRule), job)
       }
     }
@@ -111,8 +126,8 @@ makefile <- function(job=list(),
 
   if (all) {
     allRule <- rule(target='all',
-                        depends=.taskDependencies(job, 'all'),
-                        phony=TRUE)
+                    depends=c(makefileName, .taskDependencies(job, 'all')),
+                    phony=TRUE)
     job <- c(list(allRule), job)
   }
 
@@ -125,14 +140,31 @@ makefile <- function(job=list(),
                             phony=TRUE)
       job <- c(job, list(cleanRule))
     }
+
+    # generate clean_<task> rules
+    if (tasks) {
+      uniqueTaskNames <- unique(unlist(lapply(job, function(rule) rule$task)))
+      for (task in uniqueTaskNames) {
+        if (task != 'all') {
+          cleans <- unique(unlist(lapply(job, function(rule) {
+            if (task %in% rule$task) {
+              return(rule$clean)
+            } else {
+              return(NULL)
+            }
+          })))
+          taskCleanRule <- rule(target=paste0('clean_', task),
+                               depends=NULL,
+                               build=cleans,
+                               phony=TRUE)
+          job <- c(job, list(taskCleanRule))
+        }
+      }
+    }
   }
 
   if (makefile) {
-    target <- fileName
-    if (is.null(target)) {
-      target <- 'Makefile'
-    }
-    makefileRule <- rRule(target=target, script=makeScript)
+    makefileRule <- rRule(target=makefileName, script=makeScript)
     job <- c(job, list(makefileRule))
   }
 

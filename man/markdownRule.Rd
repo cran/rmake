@@ -5,7 +5,7 @@
 \title{Rule for building text documents from Markdown files}
 \usage{
 markdownRule(target, script, depends = NULL, format = "all",
-  params = NULL, task = "all")
+  params = list(), task = "all")
 }
 \arguments{
 \item{target}{Name of the output file to be created}
@@ -18,7 +18,7 @@ markdownRule(target, script, depends = NULL, format = "all",
 to \code{\link[rmarkdown:render]{rmarkdown::render()}}. Allowed values are: 'all', 'html_document', 'pdf_document',
 'word_document', 'odt_document', 'rtf_document', or 'md_document'.}
 
-\item{params}{\code{NULL} or a list of R values that become available within the \code{script} in
+\item{params}{A list of R values that become available within the \code{script} in
 a \code{params} variable.}
 
 \item{task}{A character vector of parent task names. The mechanism of tasks allows to
@@ -36,6 +36,11 @@ of various supported formats such as (PDF, DOCX, etc.).
 \details{
 This rule executes the following command in a separate R process:
 `params <- params; rmarkdown::render(script, output_format=format, output_file=target)``
+
+That is, parameters given in the \code{params} argument are stored into the global variable
+and then the \code{script} is rendered with rmarkdown. That is, the re-generation of the
+\code{Makefile} with any change to \code{params} will not cause the re-execution of the recipe unless
+any other script dependencies change.
 
 Issuing \code{make clean} from the shell causes removal of all files specified in \code{target} parameter.
 }
