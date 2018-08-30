@@ -4,7 +4,7 @@
 #' of various supported formats such as (PDF, DOCX, etc.).
 #'
 #' This rule executes the following command in a separate R process:
-#' `params <- params; rmarkdown::render(script, output_format=format, output_file=target)``
+#' `params <- params; rmarkdown::render(script, output_format=format, output_file=target)`
 #'
 #' That is, parameters given in the `params` argument are stored into the global variable
 #' and then the `script` is rendered with rmarkdown. That is, the re-generation of the
@@ -75,5 +75,6 @@ markdownRule <- function(target,
          rmarkdown::render(script, output_format=format, output_file=target)
        }),
        clean=paste0('$(RM) ', paste0(target, collapse=' ')),
-       task=task)
+       task=task,
+       type='markdown')
 }

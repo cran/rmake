@@ -198,3 +198,23 @@ test_that('makefile with tasks', {
                       '\t-e \'    source("Makefile.R")\' \\',
                       '\t-e \'}\''))
 })
+
+
+test_that('error on unevaluated variables', {
+  job <- 'data-$[VAR].csv' %>>% rRule('script.R') %>>% 'result.csv'
+  expect_error(makefile(job))
+})
+
+
+test_that('error on non-unique targets', {
+  job <- c('data.csv' %>>% rRule('script.R') %>>% 'result.csv',
+           'data2.csv' %>>% rRule('script2.R') %>>% 'result.csv')
+  expect_error(makefile(job))
+})
+
+
+test_that('duplicate rules are ignored', {
+  job <- c('data.csv' %>>% rRule('script.R') %>>% 'result.csv',
+           'data.csv' %>>% rRule('script.R') %>>% 'result.csv')
+  expect_silent(out <- makefile(job))
+})
