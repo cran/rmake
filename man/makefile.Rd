@@ -4,9 +4,17 @@
 \alias{makefile}
 \title{Generate Makefile from given list of rules (\code{job}).}
 \usage{
-makefile(job = list(), fileName = NULL, makeScript = "Makefile.R",
-  vars = NULL, all = TRUE, tasks = TRUE, clean = TRUE,
-  makefile = TRUE)
+makefile(
+  job = list(),
+  fileName = NULL,
+  makeScript = "Makefile.R",
+  vars = NULL,
+  all = TRUE,
+  tasks = TRUE,
+  clean = TRUE,
+  makefile = TRUE,
+  depends = NULL
+)
 }
 \arguments{
 \item{job}{A list of rules (i.e. of instances of the S3 class \code{rmake.rule} - see \code{\link[=rule]{rule()}})}
@@ -18,10 +26,10 @@ writing to a file.}
 the \code{makefile} rule)}
 
 \item{vars}{A named character vector of shell variables that will be declared in the resulting Makefile
-(additionally to \code{[defaultVars]})}
+(additionally to \verb{[defaultVars]})}
 
 \item{all}{\code{TRUE} if the \code{all} rule should be automatically created and added: created \code{all} rule
-has dependencies to all the other rules, which causes that everything is built if \code{make all} is executed
+has dependencies to all the other rules, which causes that everything is built if \verb{make all} is executed
 in shell's command line.}
 
 \item{tasks}{\code{TRUE} if "task" rules should be automatically created and added -- see \code{\link[=rule]{rule()}} for
@@ -32,6 +40,8 @@ more details.}
 \item{makefile}{\code{TRUE} if the \code{Makefile} rule should be automatically created and added: this rule
 causes that any change in the R script - that generates the \code{Makefile} (i.e. that calls \code{\link[=makefile]{makefile()}}) -
 issues the re-generation of the Makefile in the beginning of any build.}
+
+\item{depends}{a character vector of file names that the makefile generating script depends on}
 }
 \value{
 If \code{fileName} is \code{NULL}, the function returns a character vector with the contents of the
@@ -46,14 +56,14 @@ contain a command for cleanup, i.e. for removal of generated files.
 \details{
 The \code{\link[=makefile]{makefile()}} function takes a list of rules (see \code{\link[=rule]{rule()}}) and generates a \code{Makefile} from them.
 Additionally, \code{all} and \code{clean} rules are optionally generated too, which can be executed from shell
-by issuing \code{make all} or \code{make clean} command, respectively, in order to build everything or erase all
+by issuing \verb{make all} or \verb{make clean} command, respectively, in order to build everything or erase all
 generated files.
 
 If there is a need to group some rules into a group, it can be done either via dependencies or by using
 the \code{task} mechanism. Each rule may get assigned one or more tasks (see \code{task} in \code{\link[=rule]{rule()}}). Each
-task is then created as a standalone rule depending on assigned rules. That way, executing \code{make task_name}
+task is then created as a standalone rule depending on assigned rules. That way, executing \verb{make task_name}
 will build all rules with assigned task \code{task_name}. By default, all rules are assigned to task \code{all},
-which allows \code{make all} to build everything.
+which allows \verb{make all} to build everything.
 }
 \examples{
 # create some jobs

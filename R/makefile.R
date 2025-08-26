@@ -10,7 +10,8 @@
 #' @export
 defaultVars <- c(SHELL='/bin/sh',
                  R='"$(R_HOME)/bin$(R_ARCH)/Rscript"',
-                 RM=ifelse(.Platform$OS.type == 'unix', 'rm', 'del'))
+                 RM=ifelse(.Platform$OS.type == 'unix', 'rm', 'cmd //C del'),
+                 CP=ifelse(.Platform$OS.type == 'unix', 'cp', 'cmd //C copy'))
 
 
 .taskDependencies <- function(job, task) {
@@ -87,6 +88,7 @@ defaultVars <- c(SHELL='/bin/sh',
 #' @param makefile `TRUE` if the `Makefile` rule should be automatically created and added: this rule
 #' causes that any change in the R script - that generates the `Makefile` (i.e. that calls [makefile()]) -
 #' issues the re-generation of the Makefile in the beginning of any build.
+#' @param depends a character vector of file names that the makefile generating script depends on
 #' @return If `fileName` is `NULL`, the function returns a character vector with the contents of the
 #' Makefile. Instead, the content is written to the given `fileName`.
 #' @seealso [rule()], [rmakeSkeleton()]
@@ -113,7 +115,8 @@ makefile <- function(job=list(),
                      all=TRUE,
                      tasks=TRUE,
                      clean=TRUE,
-                     makefile=TRUE) {
+                     makefile=TRUE,
+                     depends=NULL) {
   assert_that(is.list(job))
   assert_that(all(vapply(job, is.rule, logical(1))))
   assert_that(is.null(fileName) || is.string(fileName))
@@ -192,7 +195,7 @@ makefile <- function(job=list(),
   }
 
   if (makefile) {
-    makefileRule <- rRule(target=makefileName, script=makeScript)
+    makefileRule <- rRule(target=makefileName, script=makeScript, depends=depends)
     job <- c(job, list(makefileRule))
   }
 
@@ -202,16 +205,20 @@ makefile <- function(job=list(),
                     paste0(names(v), '=', v))
 
   ruleRows <- lapply(job, function(rule) {
-    res <- c(paste0(paste0(rule$pattern, collapse=' '),
+    pattern <- sanitizeSpaces(rule$pattern)
+    depends <- sanitizeSpaces(rule$depends)
+    build <- rule$build
+    res <- c(paste0(paste0(pattern, collapse=' '),
                     ': ',
-                    paste0(rule$depends, collapse=' ')),
-             paste0('\t', rule$build))
+                    paste0(depends, collapse=' ')),
+             paste0('\t', build))
     if (isTRUE(rule$phony)) {
-      res <- c(paste0('.PHONY: ', rule$pattern),
+      res <- c(paste0('.PHONY: ', pattern),
                res)
     }
     return(res)
   })
+
   ruleRows <- unlist(ruleRows)
 
   rows <- c(preambleRows, '', ruleRows)

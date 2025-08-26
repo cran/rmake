@@ -1,3 +1,16 @@
+# rmake 1.2.0
+
+* expandTemplate() now allows character vectors as templates
+* added introductory vignette
+* added subdirRule() for compilation of subdirectories
+* added knitrRule() for compilation of Rnw files with knitr:knit()
+* added depRule()
+* enabled the depends argument of makefile() that allows the makefile generator to depend on other files
+* fixed evaluation of %>>% in a function
+* fixed handling of filenames with spaces in them
+
+
+
 # rmake 1.1.0
 
 * added %>>% pipes

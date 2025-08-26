@@ -1,34 +1,34 @@
-#' Rule for running R scripts
+#' Rule for building text documents by using the knitr package
 #'
-#' This rule is for execution of R scripts in order to create various file outputs.
+#' This rule is for execution of knitr in order to create the text file,
+#' as described in [knitr::knit()].
 #'
-#' In detail, this rule executes the following command in a separate R process:
-#' `params <- params; source(script)`
+#' This rule executes the following command in a separate R process:
+#' `library(knitr); params <- params; knitr::knit(script, output=target)`
 #'
 #' That is, parameters given in the `params` argument are stored into the global variable
-#' and then the `script` is sourced. That is, the re-generation of the `Makefile` with any change
-#' to `params` will not cause the re-execution of the recipe unless any other script dependencies change.
+#' and then the `script` is processed with knitr. That is, the re-generation of the
+#' `Makefile` with any change to `params` will not cause the re-execution of the recipe unless
+#' any other script dependencies change.
 #'
 #' Issuing `make clean` from the shell causes removal of all files specified in `target` parameter.
 #'
-#' @param target Name of output files to be created
-#' @param script Name of the R script to be executed
-#' @param depends A vector of file names that the R script depends on, or `NULL`.
+#' @param target Name of the output file to be created
+#' @param script Name of the RNW file to be rendered
+#' @param depends A vector of file names that the markdown script depends on, or `NULL`.
 #' @param params A list of R values that become available within the `script` in
 #' a `params` variable.
 #' @param task A character vector of parent task names. The mechanism of tasks allows to
 #' group rules. Anything different from `'all'` will
 #' cause creation of a new task depending on the given rule. Executing `make taskname`
 #' will then force building of this rule.
-#' @param preBuild a character vector of shell commands to be executed before building the target
-#' @param postBuild a character vector of shell commands to be executed after building the target
 #' @return Instance of S3 class `rmake.rule`
-#' @seealso [rule()], [makefile()], [markdownRule()]
+#' @seealso [markdownRule()], [rule()], [makefile()], [rRule()]
 #' @author Michal Burda
 #' @examples
-#' r <- rRule(target='cleandata.csv',
-#'            script='clean.R',
-#'            depends=c('data1.csv', 'data2.csv'))
+#' r <- knitrRule(target='report.tex',
+#'                script='report.Rnw',
+#'                depends=c('data1.csv', 'data2.csv'))
 #'
 #' # generate the content of a makefile (as character vector)
 #' makefile(list(r))
@@ -37,12 +37,19 @@
 #' tmp <- tempdir()
 #' makefile(list(r), file.path(tmp, "Makefile"))
 #' @export
-rRule <- function(target, script, depends=NULL, params=list(), task='all', preBuild=NULL, postBuild=NULL) {
+#' @importFrom knitr knit
+knitrRule <- function(target,
+                      script,
+                      depends=NULL,
+                      params=list(),
+                      task='all') {
   assert_that(is.character(target))
   assert_that(is.string(script))
   assert_that(is.null(depends) || is.character(depends))
   assert_that(is.list(params))
   assert_that(is.character(task))
+
+  allDeps <- c(script, depends)
 
   p <- c(list(.target=target,
               .script=script,
@@ -51,15 +58,13 @@ rRule <- function(target, script, depends=NULL, params=list(), task='all', preBu
          params)
   rm(params)
 
-  build <-  inShell({
-    params <- p
-    source(script)
-  })
-
   rule(target=target,
-       depends=c(script, depends),
-       build=c(preBuild, build, postBuild),
+       depends=allDeps,
+       build=inShell({
+         params <- p
+         knitr::knit(script, output=target)
+       }),
        clean=paste0('$(RM) ', paste0(sanitizePath(target), collapse=' ')),
        task=task,
-       type='R')
+       type='knitr')
 }

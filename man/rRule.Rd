@@ -4,7 +4,15 @@
 \alias{rRule}
 \title{Rule for running R scripts}
 \usage{
-rRule(target, script, depends = NULL, params = list(), task = "all")
+rRule(
+  target,
+  script,
+  depends = NULL,
+  params = list(),
+  task = "all",
+  preBuild = NULL,
+  postBuild = NULL
+)
 }
 \arguments{
 \item{target}{Name of output files to be created}
@@ -18,8 +26,12 @@ a \code{params} variable.}
 
 \item{task}{A character vector of parent task names. The mechanism of tasks allows to
 group rules. Anything different from \code{'all'} will
-cause creation of a new task depending on the given rule. Executing \code{make taskname}
+cause creation of a new task depending on the given rule. Executing \verb{make taskname}
 will then force building of this rule.}
+
+\item{preBuild}{a character vector of shell commands to be executed before building the target}
+
+\item{postBuild}{a character vector of shell commands to be executed after building the target}
 }
 \value{
 Instance of S3 class \code{rmake.rule}
@@ -29,13 +41,13 @@ This rule is for execution of R scripts in order to create various file outputs.
 }
 \details{
 In detail, this rule executes the following command in a separate R process:
-\code{params <- params; source(script)}
+\verb{params <- params; source(script)}
 
 That is, parameters given in the \code{params} argument are stored into the global variable
 and then the \code{script} is sourced. That is, the re-generation of the \code{Makefile} with any change
 to \code{params} will not cause the re-execution of the recipe unless any other script dependencies change.
 
-Issuing \code{make clean} from the shell causes removal of all files specified in \code{target} parameter.
+Issuing \verb{make clean} from the shell causes removal of all files specified in \code{target} parameter.
 }
 \examples{
 r <- rRule(target='cleandata.csv',
